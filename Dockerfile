@@ -1,18 +1,22 @@
-FROM debian:bullseye
+FROM node:bullseye
 
-RUN mkdir app
+RUN mkdir /app
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y curl gnupg2 sqlite3
-RUN curl -sL https://deb.nodesource.com/setup_16.x | bash -
-RUN apt-get install -y nodejs
+RUN apt-get update
+RUN apt-get install -y sqlite3
+
 RUN node --version
 RUN npm --version
+
+# Install sqlite3 driver for Node.js
+RUN npm init -y
+RUN npm install sqlite3
 
 COPY app.js .
 COPY entrypoint.sh .
 RUN chmod +x entrypoint.sh
 
 EXPOSE 80
-ENTRYPOINT ["/bin/bash", "-c", "echo 'HELLO' && chmod +x /app/entrypoint.sh && /app/entrypoint.sh"]
+ENTRYPOINT ["/app/entrypoint.sh"]
 CMD [ "node", "/app/app.js" ]
