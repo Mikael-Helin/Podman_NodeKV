@@ -1,7 +1,7 @@
 FROM node:bullseye
 
-RUN mkdir /app
-WORKDIR /app
+RUN mkdir -p /opt/app/dist
+WORKDIR /opt/app
 
 RUN apt-get update
 RUN apt-get install -y sqlite3
@@ -13,10 +13,10 @@ RUN npm --version
 RUN npm init -y
 RUN npm install sqlite3
 
-COPY app.js .
-COPY entrypoint.sh .
-RUN chmod +x entrypoint.sh
+COPY app.js /opt/app/dist/app.js
+COPY entrypoint.sh /opt/app/entrypoint.sh
+RUN chmod +x /opt/app/entrypoint.sh
 
 EXPOSE 80
-ENTRYPOINT ["/app/entrypoint.sh"]
-CMD [ "node", "/app/app.js" ]
+ENTRYPOINT ["/opt/app/entrypoint.sh"]
+CMD [ "node", "/opt/app/dist/app.js" ]

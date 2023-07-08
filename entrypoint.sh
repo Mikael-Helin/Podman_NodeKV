@@ -2,7 +2,7 @@
 
 echo "Running entrypoint.sh"
 
-DB_DIR=/app/data
+DB_DIR=/opt/app/data
 mkdir -p $DB_DIR
 
 # Create table if necessary.
@@ -14,4 +14,4 @@ else
 fi
 
 # Start your main application.
-exec node /app/app.js
+node /opt/app/dist/app.js

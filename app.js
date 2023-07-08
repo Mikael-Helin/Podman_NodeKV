@@ -4,7 +4,7 @@ const sqlite3 = require('sqlite3').verbose();
 const hostname = '0.0.0.0';
 const port = 80;
 
-const db = new sqlite3.Database('/app/data/kvstore.db', (err) => {
+const db = new sqlite3.Database('/opt/app/data/kvstore.db', (err) => {
   if (err) {
     console.error(err.message);
     process.exit(1);
@@ -100,25 +100,22 @@ const server = http.createServer((req, res) => {
     const key = path.slice('/store/'.length);
 
     let body = '';
-    req.on('data', chunk => {
-      body += chunk;
-    });
+    req.on('data', chunk => { body += chunk; });
     req.on('end', () => {
       const value = JSON.parse(body).value;
       db_insert(key, value, res);
-        #db.run(`INSERT OR REPLACE INTO kvstore(key, value, created, updated, active) VALUES(?, ?, ?, ?, ?)`,
-        #[key, value, Date.now(), Date.now(), true],
-        #function(err) {
-        #  if (err) {
-        #    res.writeHead(500);
-        #    res.end(`Failed to insert data: ${err.message}`);
-        #    return;
-        #  }
+        //db.run(`INSERT OR REPLACE INTO kvstore(key, value, created, updated, active) VALUES(?, ?, ?, ?, ?)`,
+        //[key, value, Date.now(), Date.now(), true],
+        //function(err) {
+        //  if (err) {
+        //    res.writeHead(500);
+        //    res.end(`Failed to insert data: ${err.message}`);
+        //    return;
+        //  }
 
-        # res.writeHead(200, {'Content-Type': 'application/json'});
-        # res.end(JSON.stringify({key, value}));
+        // res.writeHead(200, {'Content-Type': 'application/json'});
+        // res.end(JSON.stringify({key, value}));
       });
-    });
     return;
   }
 

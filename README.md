@@ -1,17 +1,18 @@
 # Podman NodeKV
 
-Create the image and its volume
+First install key-value store image by
 
-    podman build -t node-kv .
-    podman volume create podman-kv__app
-    cp app.js ~/.local/share/containers/storage/volumes/podman-kv__app/_data
-    chmod +x entrypoint.sh
-    cp -p entrypoint.sh ~/.local/share/containers/storage/volumes/podman-kv__app/_data
+    sh install.sh
 
-and run it
+and then run the container by
 
-    podman run -d -p 8080:80 -v podman-kv__app:/app:Z node-kv
+    podman run -d -p 8080:80 --name node-kv -v node-kv__opt__app__dist:/opt/app/dist:Z -v node-kv__opt__app__data:/opt/app/data node-kv
 
-check if entrypoint.sh was run
+then to check if it worked you should get kvstore.db lsited
 
-    ls -al ~/.local/share/containers/storage/volumes/podman-kv__app/_data/
+    ls -al ~/.local/share/containers/storage/volumes/node-kv__app/_data/data
+
+As soon as you implemented changes to app.js and want to test it, run
+
+    ./update.sh.
+
