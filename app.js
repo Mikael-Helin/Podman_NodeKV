@@ -6,7 +6,7 @@ const port = 80;
 const ALLOWED_FIELDS = ["key", "value", "created", "updated", "last_active", "ttl", "active"];
 const ALLOWED_CHARACTERS = /^[a-zA-Z0-9\/\.,@~()_\-:;*]*$/;
 
-const DEFAULT_FORMAT = ""; // "" means default is JSON
+const DEFAULT_FORMAT = ""; // empty string "" means default is JSON
 const DEFAULT_TTL = "0";
 const DEFAULT_VALUE = "";
 
@@ -65,26 +65,25 @@ const getSelectors = selectorString => {
 
 // ** Response functions **
 
-
-const traverseJSON2HTML = msgJSON => {
-  let html = "<center><table width='80%'>"
-  if (msgJSON.message.items != undefined && msgJSON.message.items.length>1) {
-    html += "<tr align='left'><th>KEY</th><th>VALUE</th><th>CREATED</th><th>UPDATED</th><th>TTL</th><th>LAST_ACCESS</th><th>ACTIVE</th></tr>";
+const traverseJSON2HTML = ({msgJSON, attributes}) => {
+  let html = "<center><table width='80%'>";
+  if (msgJSON.message.items != undefined && msgJSON.message.items.length > 1) {
     const items = msgJSON.message.items;
-    items.forEach(item => { html += `<tr><td>${item.key}</td><td>${item.value}</td><td>${item.create}</td><td>${item.updated}</td><td>${item.ttl}</td><td>${item.last_active}</td><td>${item.active}</td></tr>`});}
+    html += "<tr align='left'>" + attributes.map(attr => `<th>${attr}</th>`).join('') + "</tr>";
+    items.forEach(item => { html += "<tr>" + attributes.map(attr => `<td>${item[attr]}</td>`).join('') + "</tr>"; });} 
   else {
     html += "<tr><th>KEY</th><th>VALUE</th></tr>";
     const keys = Object.keys(msgJSON);
     keys.forEach(key => {
       html += `<tr><td>${key}</td>`;
       let value = msgJSON[key];
-      html += typeof value === "string" ? `<td>${value}</td></tr>` : `<td>${JSON.stringify(value)}</td></tr>`; })};
+      html += typeof value === "string" ? `<td>${value}</td></tr>` : `<td>${JSON.stringify(value)}</td></tr>`; });};
   html += "</table></center>";
 
   return html;
 };
 
-const traverseJSON2CSV = (msgJSON, attributes) => {
+const traverseJSON2CSV = ({msgJSON, attributes}) => {
   let csv;
   if (msgJSON.message.items != undefined && msgJSON.message.items.length > 1) {
     const items = msgJSON.message.items;
@@ -101,35 +100,33 @@ const traverseJSON2CSV = (msgJSON, attributes) => {
   return csv;
 };
 
-const sendResponse = (statusCode, msgJSON, res, format=DEFAULT_FORMAT) => {
+const sendResponse = ({statusCode, msgJSON, res, format, attributes}) => {
   if (format == "html") {
     res.writeHead(statusCode, {'Content-Type': 'text/html'});
-    res.end(traverseJSON2HTML(msgJSON)); }
+    res.end(traverseJSON2HTML({msgJSON, attributes})); }
   else if (format == "csv") {
     res.writeHead(statusCode, {'Content-Type': 'text/csv'});
-    res.end(traverseJSON2CSV(msgJSON)); }
+    res.end(traverseJSON2CSV({msgJSON, attributes})); }
   else {
     res.writeHead(statusCode, {'Content-Type': 'application/json'});
     res.end(JSON.stringify(msgJSON)); };
 };
 
-
-const sendOKResponse = (messageValue, res, format=DEFAULT_FORMAT) => { sendResponse(200, {"status": "ok", "message": messageValue}, res, format); };
-const sendErrorResponse = (statusCode, msgString, res, format=DEFAULT_FORMAT) => { sendResponse(statusCode, {"status": "error", "message": msgString}, res, format); };
-
+const sendOKResponse = ({messageValue, res, format=DEFAULT_FORMAT, attributes=["KEY","VALUE"]}) => { sendResponse({ statusCode: 200, msgJSON: {"status": "ok", "message": messageValue}, res, format, attributes}); };
+const sendErrorResponse = ({statusCode, msgString, res, format=DEFAULT_FORMAT, attributes=["KEY","VALUE"]}) => { sendResponse({ statusCode, msgJSON: {"status": "error", "message": msgString}, res, format, attributes}); };
 
 const handleDataStream = req => {
   return new Promise((resolve, reject) => {
     let body = '';
     req.on('data', chunk => { body += chunk.toString(); });
     req.on('end', () => { resolve(body); });
-    req.on('error', (err) => { reject(err); }); });
+    req.on('error', (err) => { reject(err); });});
 };
 
 
-const handleSelectResponse = (err, rows, res, format=DEFAULT_FORMAT) => {
-  if (err) { sendErrorResponse(500, `Failed with SQL query: ${err.message}`, res, format); }
-  else if (!rows || rows.length === 0) { sendOKResponse({}, res, format); }
+const handleSelectResponse = ({err, rows, res, format=DEFAULT_FORMAT, attributes}) => {
+  if (err) { sendErrorResponse({statusCode: 500, msgString: `Failed with SQL query: ${err.message}`, res, format, attributes}); }
+  else if (!rows || rows.length === 0) { sendOKResponse({messageValue: {}, res, format, attributes}); }
   else {
     const items = rows.map(row => ({
       key: row.key,
@@ -140,14 +137,14 @@ const handleSelectResponse = (err, rows, res, format=DEFAULT_FORMAT) => {
       last_active: row.last_active,
       active: row.active
     }));
-    sendOKResponse({items}, res, format); };
+    sendOKResponse({messageValue: {items}, res, format, attributes}); };
 };
 
 
 // ** Other functions **
 
 
-const getKeys = (httpBody, query_keys_list, path_keys_list) => {
+const getKeys = ({httpBody, query_keys_list, path_keys_list}) => {
   let keys = [];
   if (httpBody === undefined || httpBody === "" || httpBody === "{}" || httpBody === "[]" || httpBody.length === 0) { keys = query_keys_list.length>0 ? query_keys_list : path_keys_list; }
   else { let jsonObj = JSON.parse(httpBody); if (Array.isArray(jsonObj)) { keys = jsonObj; } };
