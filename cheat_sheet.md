@@ -1,26 +1,3 @@
-
-store: id key value ttl updated last_active active
-
-exists
-SELECT keys FROM store WHERE key IN (keys) AND active=1 AND t<last_active+ttl
-
-ping (keys)
-t = NOW()
-UPDATE store SET last_active=t WHERE key IN (keys) AND active=1 AND t<last_active+ttl
-
-read (keys)
-t=NOW()
-SELECT id, key, q FROM store WHERE key IN (keys) AND active=1 AND t<last_active+ttl
-UPDATE store SET last_active=t WHERE id IN (ids)
-return [key, q]
-
-inactivate(keys)
-
-
-clean_ip
-
-
-
 # CHEAT SHEET FOR 3KV
 
 This key-value store is named 3KV because it has 3 ways how keys can be provided. In the HTTP body, in the path or in the url query.
