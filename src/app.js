@@ -156,13 +156,28 @@ const getKeys = ({httpBody, query_keys_list, path_keys_list}) => {
 // ** SQLite3 functions **
 
 
-const db = new sqlite3.Database('/opt/app/data/kvstore.db', (err) => {
-  if (err) { console.error(err.message); process.exit(1); }
-  console.log('Connected to the kvstore.db database.');
-});
+let db;
+const connectDB = () => {
+  return new Promise((resolve, reject) => {
+    db = new sqlite3.Database('/opt/app/data/kvstore.db', (err) => {
+      if (err) { console.error(err.message); reject(err); }
+      else { console.log('Connected to the kvstore.db database.'); resolve(db); };});});
+};
+
+const disconnectDB = () => {
+  return new Promise((resolve, reject) => {
+    if (db) {
+      db.close((err) => {
+        if (err) { console.error(err); reject(err); }
+        else { console.log('Disconnected from the kvstore.db database.'); resolve(); }});}
+    else { console.log('No database connection to close.'); resolve(); };});
+};
+
+// ** 3KV server **
 
 
 const server = http.createServer(async (req, res) => {
+  // Variables
   const method = req.method;
   const parsedUrl = new URL(req.url, `http://${req.headers.host}`);
   const pathname = parsedUrl.pathname;
@@ -200,6 +215,7 @@ const server = http.createServer(async (req, res) => {
   let dataToInsert = [];
 
   // Main
+
   if (isOK) {
     if (root_path == "store") {
 
@@ -299,5 +315,20 @@ const server = http.createServer(async (req, res) => {
   else { sendErrorResponse(400, errorMsg, res); }; // Sanity check failed
 });
 
+if (require.main === module) { server.listen(port, hostname, () => { console.log(`Server running at http://${hostname}:${port}/`); });};
 
-server.listen(port, hostname, () => { console.log(`Server running at http://${hostname}:${port}/`); });
+module.exports = {
+  isCleanSelector,
+  areCleanSelectors,
+  isCleanValue,
+  isCleanList,
+  isCleanTTL,
+  pathExtract,
+  isCleanPostBody,
+  getSelectors,
+  getKeys,
+  traverseJSON2HTML,
+  traverseJSON2CSV,
+  connectDB,
+  disconnectDB
+};

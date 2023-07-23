@@ -1,0 +1,19 @@
+{
+    "name": "3kv",
+    "version": "0.0.1",
+    "description": "A simple key-value store for basic production use",
+    "main": "dist/app.js",
+    "scripts": {
+        "start": "node dist/app.js",
+        "test": "jest /opt/app/testing/*.js"
+    },
+    "keywords": [],
+    "author": "Mikael Helin",
+    "license": "Copyright by Mikael Helin",
+    "dependencies": {
+        "sqlite3": "^3.41.1"
+    },
+    "devDependencies": {
+        "jest": "~29.6.1"
+    }
+}

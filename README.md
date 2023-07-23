@@ -6,19 +6,21 @@
 
 First install key-value store image by
 
+    cd utils
     sh install.sh
 
 and then run the container by
 
     ./run.sh
 
-then to check if it worked you should get kvstore.db listed
-
-    ls -al ~/.local/share/containers/storage/volumes/node-kv__opt__app__data/_data/
-
-As soon as you implemented changes to app.js and want to test it, run
+As soon as you implemented changes to app.js and want to use it, run
 
     ./update.sh.
+
+With a web browser, surf to local host to get instructions
+
+    http://localhost:8080
+
 
 ## Testing
 
@@ -28,3 +30,8 @@ To insert from CLI type
 
     curl -X POST -d "car1=Toyota&car2=Fiat" http://localhost:8080/store
 
+
+
+docker build -t myapp:test -f Dockerfile.test .
+
+docker run --rm myapp:test
