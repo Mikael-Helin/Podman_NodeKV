@@ -53,17 +53,15 @@ const isCleanPostBody = postBody => { // returns an errorMsg
 };
 
 const getSelectors = selectorString => {
-  let selected = "";
-  if (selectorString == undefined || selectorString === "*") { selected = "*"; }
-  else if (areCleanSelectors(selected)) {
-    selected = "key,value"
-    for (let n=2; n<ALLOWED_FIELDS.length; n++) { if (selectorString.split(",").includes(ALLOWED_FIELDS[n])) { selected += "," + ALLOWED_FIELDS[n]; };};};
-  
-  return selected === "" ? "*" : selected;
+  if (selectorString == undefined || selectorString == "" || selectorString == "*") { return "*"};
+  let selected = "key,value";
+  for (let n=2; n<ALLOWED_FIELDS.length; n++) { if (selectorString.split(",").includes(ALLOWED_FIELDS[n])) { selected += "," + ALLOWED_FIELDS[n]; }};
+  return selected;
 };
 
 
 // ** Response functions **
+
 
 const traverseJSON2HTML = ({msgJSON, attributes}) => {
   let html = "<center><table width='80%'>";
@@ -123,7 +121,6 @@ const handleDataStream = req => {
     req.on('error', (err) => { reject(err); });});
 };
 
-
 const handleSelectResponse = ({err, rows, res, format=DEFAULT_FORMAT, attributes}) => {
   if (err) { sendErrorResponse({statusCode: 500, msgString: `Failed with SQL query: ${err.message}`, res, format, attributes}); }
   else if (!rows || rows.length === 0) { sendOKResponse({messageValue: {}, res, format, attributes}); }
@@ -147,7 +144,7 @@ const handleSelectResponse = ({err, rows, res, format=DEFAULT_FORMAT, attributes
 const getKeys = ({httpBody, query_keys_list, path_keys_list}) => {
   let keys = [];
   if (httpBody === undefined || httpBody === "" || httpBody === "{}" || httpBody === "[]" || httpBody.length === 0) { keys = query_keys_list.length>0 ? query_keys_list : path_keys_list; }
-  else { let jsonObj = JSON.parse(httpBody); if (Array.isArray(jsonObj)) { keys = jsonObj; } };
+  else { let jsonObj = JSON.parse(httpBody); if (Array.isArray(jsonObj)) { keys = jsonObj; } else { keys = query_keys_list.length>0 ? query_keys_list : path_keys_list; };};
 
   return keys;
 };
@@ -330,5 +327,7 @@ module.exports = {
   traverseJSON2HTML,
   traverseJSON2CSV,
   connectDB,
-  disconnectDB
+  disconnectDB,
+  sendOKResponse,
+  sendErrorResponse
 };

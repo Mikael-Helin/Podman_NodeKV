@@ -20,10 +20,10 @@ EXPOSE 80
 ENTRYPOINT ["/opt/app/entrypoint.sh"]
 CMD [ "node", "/opt/app/dist/app.js" ]
 
-
 # Set up the test image
 FROM node-kv:production as testing
 
+RUN npm install jsdom
 RUN npm install --save-dev jest
 RUN npx jest --version
 RUN node -p "require('sqlite3').verbose().VERSION"
