@@ -1,5 +1,3 @@
-podman stop node-kv
-podman rm node-kv
 podman build -t node-kv:production --target production ..
 podman volume create node-kv__opt__app__dist
 podman volume create node-kv__opt__app__data

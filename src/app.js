@@ -53,7 +53,7 @@ const isCleanPostBody = postBody => { // returns an errorMsg
 };
 
 const getSelectors = selectorString => {
-  if (selectorString == undefined || selectorString == "" || selectorString == "*") { return "*"};
+  if (selectorString == undefined || selectorString == "" || selectorString == "*") { return ALLOWED_FIELDS.join(",")};
   let selected = "key,value";
   for (let n=2; n<ALLOWED_FIELDS.length; n++) { if (selectorString.split(",").includes(ALLOWED_FIELDS[n])) { selected += "," + ALLOWED_FIELDS[n]; }};
   return selected;
@@ -63,12 +63,12 @@ const getSelectors = selectorString => {
 // ** Response functions **
 
 
-const traverseJSON2HTML = ({msgJSON, attributes}) => {
+const traverseJSON2HTML = ({msgJSON, attributes_list}) => {
   let html = "<center><table width='80%'>";
   if (msgJSON.message.items != undefined && msgJSON.message.items.length > 1) {
     const items = msgJSON.message.items;
-    html += "<tr align='left'>" + attributes.map(attr => `<th>${attr}</th>`).join('') + "</tr>";
-    items.forEach(item => { html += "<tr>" + attributes.map(attr => `<td>${item[attr]}</td>`).join('') + "</tr>"; });} 
+    html += "<tr align='left'>" + attributes_list.map(attr => `<th>${attr}</th>`).join('') + "</tr>";
+    items.forEach(item => { html += "<tr>" + attributes_list.map(attr => `<td>${item[attr]}</td>`).join('') + "</tr>"; });} 
   else {
     html += "<tr><th>KEY</th><th>VALUE</th></tr>";
     const keys = Object.keys(msgJSON);
@@ -81,12 +81,12 @@ const traverseJSON2HTML = ({msgJSON, attributes}) => {
   return html;
 };
 
-const traverseJSON2CSV = ({msgJSON, attributes}) => {
+const traverseJSON2CSV = ({msgJSON, attributes_list}) => {
   let csv;
   if (msgJSON.message.items != undefined && msgJSON.message.items.length > 1) {
     const items = msgJSON.message.items;
-    csv = attributes.join(",") + "\n";
-    items.forEach(item => {  csv += attributes.map(attr => `"${item[attr]}"`).join(",") + "\n"; });}
+    csv = attributes_list.join(",") + "\n";
+    items.forEach(item => {  csv += attributes_list.map(attr => `"${item[attr]}"`).join(",") + "\n"; });}
   else {
     csv = "KEY,VALUE\n";
     const keys = Object.keys(msgJSON);
@@ -143,8 +143,13 @@ const handleSelectResponse = ({err, rows, res, format=DEFAULT_FORMAT, attributes
 
 const getKeys = ({httpBody, query_keys_list, path_keys_list}) => {
   let keys = [];
-  if (httpBody === undefined || httpBody === "" || httpBody === "{}" || httpBody === "[]" || httpBody.length === 0) { keys = query_keys_list.length>0 ? query_keys_list : path_keys_list; }
-  else { let jsonObj = JSON.parse(httpBody); if (Array.isArray(jsonObj)) { keys = jsonObj; } else { keys = query_keys_list.length>0 ? query_keys_list : path_keys_list; };};
+  if (httpBody === undefined || httpBody === "" || httpBody === "{}" || httpBody === "[]" || httpBody.length === 0) {
+    if (path_keys_list == undefined || path_keys_list.length === 0) {
+      if (query_keys_list != undefined && query_keys_list.length>0) { keys = query_keys_list; };}
+    else { keys = path_keys_list; };}
+  else {
+    let jsonObj = JSON.parse(httpBody);
+    if (Array.isArray(jsonObj)) { keys = jsonObj; };};
 
   return keys;
 };
@@ -154,12 +159,20 @@ const getKeys = ({httpBody, query_keys_list, path_keys_list}) => {
 
 
 let db;
+let lastAccessTime;
+let disconnectTimeout;
+
 const connectDB = () => {
   return new Promise((resolve, reject) => {
     db = new sqlite3.Database('/opt/app/data/kvstore.db', (err) => {
       if (err) { console.error(err.message); reject(err); }
-      else { console.log('Connected to the kvstore.db database.'); resolve(db); };});});
+      else { 
+        console.log('Connected to the kvstore.db database.');
+        lastAccessTime = Date.now();
+        resetDisconnectTimeout();
+        resolve(db); };});});
 };
+
 
 const disconnectDB = () => {
   return new Promise((resolve, reject) => {
@@ -169,6 +182,23 @@ const disconnectDB = () => {
         else { console.log('Disconnected from the kvstore.db database.'); resolve(); }});}
     else { console.log('No database connection to close.'); resolve(); };});
 };
+
+
+const resetDisconnectTimeout = () => {
+  if (disconnectTimeout) { clearTimeout(disconnectTimeout); }
+  disconnectTimeout = setTimeout(() => {
+    if (Date.now() - lastAccessTime >= 5000) {
+      disconnectDB().catch(err => console.error(err));
+    }}, 5000);
+};
+
+
+const setDisconnectTimeout = () => {
+  lastAccessTime = Date.now();
+  resetDisconnectTimeout();
+};
+
+
 
 // ** 3KV server **
 
@@ -214,10 +244,12 @@ const server = http.createServer(async (req, res) => {
   // Main
 
   if (isOK) {
+    connectDB();
     if (root_path == "store") {
 
       // CREATE
       if (method === "POST" || (method === "GET" && urlquery.get("cmd") === "create")) {
+        setDisconnectTimeout();
         if (method === "POST") {
           const jsonObj = JSON.parse(httpBody);
           for (let key in jsonObj) {
@@ -240,26 +272,29 @@ const server = http.createServer(async (req, res) => {
           sql += valueSets.join(", ");
 
           db.run(sql, [], err => {
-            if (err) { isOK = false; sendErrorResponse(500, "Failed inserting data", res); }
-            else { sendOKResponse("Success inserting data", res); };});}
-        else { sendErrorResponse(400, "Empty insert requested") };};
+            if (err) { isOK = false; sendErrorResponse({statusCode: 500, msgString: "Failed inserting data", res, format}); }
+            else { sendOKResponse({msgString: "Success inserting data", res, format}); };});}
+        else { sendErrorResponse({statusCode: 400, msgString: "Empty insert requested", res, format}) };};
 
       // READ
       if (method === "GET" && (urlquery.get("cmd") === "read" || urlquery.get("cmd") == undefined)) {
-        const keys = getKeys(httpBody, query_keys_list, path_keys_list);
+        setDisconnectTimeout();
+        const keys = getKeys({httpBody, query_keys_list, path_keys_list});
         let sql = `UPDATE kvstore SET last_active=${timeNow} WHERE active=1 AND (${timeNow}<last_active+ttl OR ttl=0)`;
         if (keys.length>0) { sql += ` AND key IN (${keys.map(key => `'${key}'`).join(",")})`};
         sql += ";";
 
         db.run(sql, err => {
-          if (err) { isOK = false; sendErrorResponse(500, "Failed update activity before read", res); }
+          if (err) { isOK = false; sendErrorResponse({statusCode: 500, msgString: "Failed update activity before read", res, format}); }
           else {
-            const select = getSelectors(getSelectors(urlquery.get("selectors")));
+            const select = getSelectors(urlquery.get("selectors"));
+            const attributes_list = select.split(",").map(s => s.toUpperCase);
             sql = keys.length === 0 ? `SELECT ${select} FROM kvstore;` : `SELECT ${select} FROM kvstore WHERE key IN (${keys.map(key => `'${key}'`).join(", ")}) AND active=1 AND (${timeNow}<last_active+ttl OR ttl=0);`;
-            db.all(sql, [], (err, rows) => { handleSelectResponse(err, rows, res, format); });};});};
+            db.all(sql, [], (err, rows) => { handleSelectResponse({err, rows, res, format, attributes_list}); });};});};
 
       // UPDATE
       if (method === "PUT" || (method === "GET" && urlquery.get("cmd") === "update")) {
+        setDisconnectTimeout();
         if (method === "GET") {
           const keys = query_keys_list.length>0 ? query_keys_list : path_keys_list;
           for (let n = 0; n < keys.length; n++) {
@@ -283,18 +318,21 @@ const server = http.createServer(async (req, res) => {
 
       // DELETE
       if (method === "DELETE" || (method === "GET" && urlquery.get("cmd") === "delete")) {
+        setDisconnectTimeout();
         let keys = getKeys(httpBody, query_keys_list, path_keys_list);
         const sql = keys.length === 0 ? `DELETE FROM kvstore WHERE active=0 OR (ttl>0 AND ${timeNow}>=last_active+ttl);` : `DELETE FROM kvstore WHERE key IN(${keys.map(key => `'${key}'`).join(", ")});`;
         db.run(sql, [], err => { if (err) { sendErrorResponse(500, "Failed deleting data", res); } else { sendOKResponse("Success deleting data", res); };});};
 
       // EXISTS
       if (method === "GET" && urlquery.get("cmd") === "exists") {
+        setDisconnectTimeout();
         let keys = getKeys(httpBody, query_keys_list, path_keys_list);
         const sql = `SELECT key FROM kvstore WHERE active=1 AND (ttl=0 OR ${timeNow}<last_active+ttl)` + (keys.length === 0 ? ";" : ` AND key IN(${keys.map(key => `'${key}'`).join(", ")});`);
         db.all(sql, [], (err, rows) => { handleSelectResponse(err, rows, res, format); });};
 
       // PING
       if (method === "PATCH" || (method === "GET" && urlquery.get("cmd") === "ping")) {
+        setDisconnectTimeout();
         let keys = getKeys(httpBody, query_keys_list, path_keys_list);
         if (keys.length>0) {
           const sql = `UPDATE kvstore SET last_active=${timeNow} WHERE active=1 AND ${timeNow}<last_active+ttl AND key IN(${keys.map(key => `'${key}'`).join(", ")});`;
@@ -303,6 +341,7 @@ const server = http.createServer(async (req, res) => {
 
       // INACTIVATE
       if ((method === "PATCH" || method === "GET") && urlquery.get("cmd") === "inactivate") {
+        setDisconnectTimeout();
         let keys = getKeys(httpBody, query_keys_list, path_keys_list);
         if (keys.length>0) {
           const sql = `UPDATE kvstore SET last_active=${timeNow}, active=0 WHERE active=1 AND ${timeNow}<last_active+ttl AND key IN(${keys.map(key => `'${key}'`).join(", ")});`;
