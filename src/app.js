@@ -110,7 +110,7 @@ const sendResponse = ({statusCode, msgJSON, res, format, attributes}) => {
     res.end(JSON.stringify(msgJSON)); };
 };
 
-const sendOKResponse = ({messageValue, res, format=DEFAULT_FORMAT, attributes=["KEY","VALUE"]}) => { sendResponse({ statusCode: 200, msgJSON: {"status": "ok", "message": messageValue}, res, format, attributes}); };
+const sendOKResponse = ({msgString, res, format=DEFAULT_FORMAT, attributes=["KEY","VALUE"]}) => { sendResponse({ statusCode: 200, msgJSON: {"status": "ok", "message": msgString}, res, format, attributes}); };
 const sendErrorResponse = ({statusCode, msgString, res, format=DEFAULT_FORMAT, attributes=["KEY","VALUE"]}) => { sendResponse({ statusCode, msgJSON: {"status": "error", "message": msgString}, res, format, attributes}); };
 
 const handleDataStream = req => {
@@ -123,7 +123,7 @@ const handleDataStream = req => {
 
 const handleSelectResponse = ({err, rows, res, format=DEFAULT_FORMAT, attributes}) => {
   if (err) { sendErrorResponse({statusCode: 500, msgString: `Failed with SQL query: ${err.message}`, res, format, attributes}); }
-  else if (!rows || rows.length === 0) { sendOKResponse({messageValue: {}, res, format, attributes}); }
+  else if (!rows || rows.length === 0) { sendOKResponse({msgString: {}, res, format, attributes}); }
   else {
     const items = rows.map(row => ({
       key: row.key,
@@ -134,7 +134,7 @@ const handleSelectResponse = ({err, rows, res, format=DEFAULT_FORMAT, attributes
       last_active: row.last_active,
       active: row.active
     }));
-    sendOKResponse({messageValue: {items}, res, format, attributes}); };
+    sendOKResponse({msgString: {items}, res, format, attributes}); };
 };
 
 
@@ -329,5 +329,7 @@ module.exports = {
   connectDB,
   disconnectDB,
   sendOKResponse,
-  sendErrorResponse
+  sendErrorResponse,
+  handleDataStream,
+  handleSelectResponse
 };
