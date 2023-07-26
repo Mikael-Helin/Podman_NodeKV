@@ -7,7 +7,7 @@ const {
     pathExtract,
     isCleanPostBody,
     getSelectors,
-    getKeys,
+    getKeysList,
     connectDB,
     disconnectDB } = require('../dist/app.js');
 
@@ -299,54 +299,54 @@ test('Testing getSelectors with unclean selectors', () => {
     expect(output).toBe(expected_output);
 });
 
-// getKeys
+// getKeysList
 
-test('Testing getKeys with undefined httpBody and non-empty query_keys_list', () => {
+test('Testing getKeysList with undefined httpBody and non-empty query_keys_list', () => {
     const input = { httpBody: undefined, query_keys_list: ["key1", "key2"], path_keys_list: ["keyA", "keyB"] };
     const expected_output = ["key1", "key2"];
-    const output = getKeys(input);
+    const output = getKeysList(input);
     expect(output).toEqual(expected_output);
 });
 
-test('Testing getKeys with empty httpBody and non-empty query_keys_list', () => {
+test('Testing getKeysList with empty httpBody and non-empty query_keys_list', () => {
     const input = { httpBody: "", query_keys_list: ["key1", "key2"], path_keys_list: ["keyA", "keyB"] };
     const expected_output = ["key1", "key2"];
-    const output = getKeys(input);
+    const output = getKeysList(input);
     expect(output).toEqual(expected_output);
 });
 
-test('Testing getKeys with empty object httpBody and non-empty query_keys_list', () => {
+test('Testing getKeysList with empty object httpBody and non-empty query_keys_list', () => {
     const input = { httpBody: "{}", query_keys_list: ["key1", "key2"], path_keys_list: ["keyA", "keyB"] };
     const expected_output = ["key1", "key2"];
-    const output = getKeys(input);
+    const output = getKeysList(input);
     expect(output).toEqual(expected_output);
 });
 
-test('Testing getKeys with empty array httpBody and non-empty query_keys_list', () => {
+test('Testing getKeysList with empty array httpBody and non-empty query_keys_list', () => {
     const input = { httpBody: "[]", query_keys_list: ["key1", "key2"], path_keys_list: ["keyA", "keyB"] };
     const expected_output = ["key1", "key2"];
-    const output = getKeys(input);
+    const output = getKeysList(input);
     expect(output).toEqual(expected_output);
 });
 
-test('Testing getKeys with empty httpBody and empty query_keys_list', () => {
+test('Testing getKeysList with empty httpBody and empty query_keys_list', () => {
     const input = { httpBody: "", query_keys_list: [], path_keys_list: ["keyA", "keyB"] };
     const expected_output = ["keyA", "keyB"];
-    const output = getKeys(input);
+    const output = getKeysList(input);
     expect(output).toEqual(expected_output);
 });
 
-test('Testing getKeys with JSON array httpBody', () => {
+test('Testing getKeysList with JSON array httpBody', () => {
     const input = { httpBody: '["keyX", "keyY"]', query_keys_list: ["key1", "key2"], path_keys_list: ["keyA", "keyB"] };
     const expected_output = ["keyX", "keyY"];
-    const output = getKeys(input);
+    const output = getKeysList(input);
     expect(output).toEqual(expected_output);
 });
 
-test('Testing getKeys with JSON non-array httpBody', () => {
+test('Testing getKeysList with JSON non-array httpBody', () => {
     const input = { httpBody: '{"keyZ":"valueZ"}', query_keys_list: ["key1", "key2"], path_keys_list: ["keyA", "keyB"] };
     const expected_output = ["key1", "key2"];
-    const output = getKeys(input);
+    const output = getKeysList(input);
     expect(output).toEqual(expected_output);
 });
 

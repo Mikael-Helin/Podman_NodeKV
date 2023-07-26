@@ -141,7 +141,7 @@ const handleSelectResponse = ({err, rows, res, format=DEFAULT_FORMAT, attributes
 // ** Other functions **
 
 
-const getKeys = ({httpBody, query_keys_list, path_keys_list}) => {
+const getKeysList = ({httpBody, query_keys_list, path_keys_list}) => {
   let keys = [];
   if (httpBody === undefined || httpBody === "" || httpBody === "{}" || httpBody === "[]" || httpBody.length === 0) {
     if (path_keys_list == undefined || path_keys_list.length === 0) {
@@ -279,7 +279,7 @@ const server = http.createServer(async (req, res) => {
       // READ
       if (method === "GET" && (urlquery.get("cmd") === "read" || urlquery.get("cmd") == undefined)) {
         setDisconnectTimeout();
-        const keys = getKeys({httpBody, query_keys_list, path_keys_list});
+        const keys = getKeysList({httpBody, query_keys_list, path_keys_list});
         let sql = `UPDATE kvstore SET last_active=${timeNow} WHERE active=1 AND (${timeNow}<last_active+ttl OR ttl=0)`;
         if (keys.length>0) { sql += ` AND key IN (${keys.map(key => `'${key}'`).join(",")})`};
         sql += ";";
@@ -314,21 +314,21 @@ const server = http.createServer(async (req, res) => {
         for (let i = 0; i < dataToInsert.length; i++) {
           const [key, value, ttl] = dataToInsert[i];
           const sql = `UPDATE kvstore SET value = ?, updated = ?, ttl = ?, last_active = ? WHERE key = ? AND active=1 AND ${timeNow}<last_active+ttl`;
-          db.run(sql, [value, timeNow, ttl, timeNow, key], err => { if (err) { sendErrorResponse(500, "Failed updating data", res); } else { sendOKResponse("Success updating data", res); }});};};
+          db.run(sql, [value, timeNow, ttl, timeNow, key], err => { if (err) { sendErrorResponse({statusCode: 500, msgString: "Failed updating data", res, format}); } else { sendOKResponse({msgString: "Success updating data", res, format}); }});};};
 
       // DELETE
       if (method === "DELETE" || (method === "GET" && urlquery.get("cmd") === "delete")) {
         setDisconnectTimeout();
         let keys = getKeys(httpBody, query_keys_list, path_keys_list);
         const sql = keys.length === 0 ? `DELETE FROM kvstore WHERE active=0 OR (ttl>0 AND ${timeNow}>=last_active+ttl);` : `DELETE FROM kvstore WHERE key IN(${keys.map(key => `'${key}'`).join(", ")});`;
-        db.run(sql, [], err => { if (err) { sendErrorResponse(500, "Failed deleting data", res); } else { sendOKResponse("Success deleting data", res); };});};
+        db.run(sql, [], err => { if (err) { sendErrorResponse({statusCode: 500, msgString: "Failed deleting data", res, format}); } else { sendOKResponse({msgString: "Success deleting data", res, format}); };});};
 
       // EXISTS
       if (method === "GET" && urlquery.get("cmd") === "exists") {
         setDisconnectTimeout();
         let keys = getKeys(httpBody, query_keys_list, path_keys_list);
         const sql = `SELECT key FROM kvstore WHERE active=1 AND (ttl=0 OR ${timeNow}<last_active+ttl)` + (keys.length === 0 ? ";" : ` AND key IN(${keys.map(key => `'${key}'`).join(", ")});`);
-        db.all(sql, [], (err, rows) => { handleSelectResponse(err, rows, res, format); });};
+        db.all(sql, [], (err, rows) => { handleSelectResponse({err, rows, res, format}); });};
 
       // PING
       if (method === "PATCH" || (method === "GET" && urlquery.get("cmd") === "ping")) {
@@ -336,8 +336,8 @@ const server = http.createServer(async (req, res) => {
         let keys = getKeys(httpBody, query_keys_list, path_keys_list);
         if (keys.length>0) {
           const sql = `UPDATE kvstore SET last_active=${timeNow} WHERE active=1 AND ${timeNow}<last_active+ttl AND key IN(${keys.map(key => `'${key}'`).join(", ")});`;
-          db.run(sql, [], err => { if (err) { sendErrorResponse(500, "Failed ping", res); } else { sendOKResponse("Ping successful", res); };});}
-        else { sendErrorResponse(400, "Ping requires some keys", res); };};
+          db.run(sql, [], err => { if (err) { sendErrorResponse({statusCode: 500, msgString: "Failed ping", res, format}); } else { sendOKResponse({msgString: "Ping successful", res, format}); };});}
+        else { sendErrorResponse({statusCode: 400, msgString: "Ping requires some keys", res, format}); };};
 
       // INACTIVATE
       if ((method === "PATCH" || method === "GET") && urlquery.get("cmd") === "inactivate") {
@@ -345,10 +345,10 @@ const server = http.createServer(async (req, res) => {
         let keys = getKeys(httpBody, query_keys_list, path_keys_list);
         if (keys.length>0) {
           const sql = `UPDATE kvstore SET last_active=${timeNow}, active=0 WHERE active=1 AND ${timeNow}<last_active+ttl AND key IN(${keys.map(key => `'${key}'`).join(", ")});`;
-          db.run(sql, [], err => { if (err) { sendErrorResponse(500, "Failed inactivation", res); } else { sendOKResponse("Successful inactivation", res); };});}
-        else { sendErrorResponse(400, "Inactivation requires some keys", res); };};}
-    else { sendOKResponse("Welcome!", res, "html"); };} // View index page
-  else { sendErrorResponse(400, errorMsg, res); }; // Sanity check failed
+          db.run(sql, [], err => { if (err) { sendErrorResponse({statusCode: 500, msgString: "Failed inactivation", res, format}); } else { sendOKResponse({msgString: "Successful inactivation", res, format}); };});}
+        else { sendErrorResponse({statusCode: 400, msgString: "Inactivation requires some keys", res, format}); };};}
+    else { sendOKResponse({msgString: "Welcome!", res, format: "html"}); };} // View index page
+  else { sendErrorResponse({statusCode: 400, msgString: errorMsg, res, format}); }; // Sanity check failed
 });
 
 if (require.main === module) { server.listen(port, hostname, () => { console.log(`Server running at http://${hostname}:${port}/`); });};
@@ -362,7 +362,7 @@ module.exports = {
   pathExtract,
   isCleanPostBody,
   getSelectors,
-  getKeys,
+  getKeysList,
   traverseJSON2HTML,
   traverseJSON2CSV,
   connectDB,
