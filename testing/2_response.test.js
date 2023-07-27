@@ -10,10 +10,9 @@ const { JSDOM } = require("jsdom");
 // convert
 
 test("Testing traverseJSON2HTML with two items", () => {
-    const input = { 
-        msgJSON: { message: { items: [{key: "key1", value: "value1"}, {key: "key2", value: "value2"}]}}, 
-        attributes: ["key", "value"]
-    };
+    const msgJSON = { message: { items: [{key: "key1", value: "value1"}, {key: "key2", value: "value2"}]}}
+    const attributes_list = ["key", "value"];
+    const input = {msgJSON, attributes_list}
     const output = traverseJSON2HTML(input);
     const dom = new JSDOM(output);
     const rows = dom.window.document.querySelectorAll("tr");
@@ -25,7 +24,7 @@ test("Testing traverseJSON2HTML with two items", () => {
 test("Testing traverseJSON2CSV with two items", () => {
     const input = { 
         msgJSON: { message: { items: [{key: "key1", value: "value1"}, {key: "key2", value: "value2"}]}}, 
-        attributes: ["key", "value"]
+        attributes_list: ["key", "value"]
     };
     const output = traverseJSON2CSV(input).trim();
     const rows = output.split("\n");

@@ -1,7 +1,7 @@
 const http = require('http');
 const sqlite3 = require('sqlite3').verbose();
 const hostname = '0.0.0.0';
-const port = 80;
+const port = process.argv[2] || 80;
 
 const ALLOWED_FIELDS = ["key", "value", "created", "updated", "last_active", "ttl", "active"];
 const ALLOWED_CHARACTERS = /^[a-zA-Z0-9\/\.,@~()_\-:;*]*$/;
@@ -142,6 +142,7 @@ const handleSelectResponse = ({err, rows, res, format=DEFAULT_FORMAT, attributes
 
 
 const getKeysList = ({httpBody, query_keys_list, path_keys_list}) => {
+  // priority httpBody > path > query 
   let keys = [];
   if (httpBody === undefined || httpBody === "" || httpBody === "{}" || httpBody === "[]" || httpBody.length === 0) {
     if (path_keys_list == undefined || path_keys_list.length === 0) {
@@ -161,8 +162,10 @@ const getKeysList = ({httpBody, query_keys_list, path_keys_list}) => {
 let db;
 let lastAccessTime;
 let disconnectTimeout;
+let isDBOpen = false;
 
 const connectDB = () => {
+  isDBOpen = true;
   return new Promise((resolve, reject) => {
     db = new sqlite3.Database('/opt/app/data/kvstore.db', (err) => {
       if (err) { console.error(err.message); reject(err); }
@@ -175,6 +178,7 @@ const connectDB = () => {
 
 
 const disconnectDB = () => {
+  isDBOpen = false;
   return new Promise((resolve, reject) => {
     if (db) {
       db.close((err) => {
@@ -187,7 +191,7 @@ const disconnectDB = () => {
 const resetDisconnectTimeout = () => {
   if (disconnectTimeout) { clearTimeout(disconnectTimeout); }
   disconnectTimeout = setTimeout(() => {
-    if (Date.now() - lastAccessTime >= 5000) {
+    if (isDBOpen && Date.now() - lastAccessTime >= 5000) {
       disconnectDB().catch(err => console.error(err));
     }}, 5000);
 };
@@ -217,6 +221,10 @@ const server = http.createServer(async (req, res) => {
   let httpBody = await handleDataStream(req);
   httpBody = httpBody ? httpBody : "{}";
   let isOK = true;
+
+  //console.log("\nhttpBody :: " + JSON.stringify(httpBody));
+  //console.log("\npath keys :: " + JSON.stringify(path_keys_list));
+  //console.log("\nquery keys :: " + JSON.stringify(query_keys_list));
   
   // Sanity checks
   let errorMsg = isCleanPostBody(httpBody);
@@ -231,8 +239,8 @@ const server = http.createServer(async (req, res) => {
   if (httpBody !== "{}") {
     if (path_keys_list.length > 0) { isOK = false; errorMsg = "Cannot have keys in both HTTP body and URL path"; }
     else if (query_keys_list.length > 0) { isOK = false; errorMsg = "Cannot have keys in both HTTP body and URL query"; }
-    else if (query_values_list.length !== 1) { isOK = false; errorMsg = "Mismatching values in HTTP body and URL query"; }
-    else if (query_ttls_list.length !== 1) { isOK = false; errorMsg = "Mismatching ttls in HTTP body and URL query"; }; }
+    else if (query_values_list.length > 1) { isOK = false; errorMsg = "Mismatching values in HTTP body and URL query"; }
+    else if (query_ttls_list.length > 1) { isOK = false; errorMsg = "Mismatching ttls in HTTP body and URL query"; }; }
   else if (path_keys_list.length > 0 && query_keys_list.length > 0) { isOK = false; errorMsg = "Mismatching keys in URL path and URL query"; }
   
   // Init
@@ -351,7 +359,7 @@ const server = http.createServer(async (req, res) => {
   else { sendErrorResponse({statusCode: 400, msgString: errorMsg, res, format}); }; // Sanity check failed
 });
 
-if (require.main === module) { server.listen(port, hostname, () => { console.log(`Server running at http://${hostname}:${port}/`); });};
+if (require.main === module) { server.listen(port, hostname, () => { console.log(`3KV server running at http://${hostname}:${port}/`); });};
 
 module.exports = {
   isCleanSelector,
